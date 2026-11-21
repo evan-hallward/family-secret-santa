@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hallward Secret Santa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="snow" aria-hidden="true" id="snow"></div>
+
+<main class="wrap">
+  <header>
+    <div class="eyebrow">Christmas 2026</div>
+    <h1>Hallward Family<br>Secret Santa</h1>
+    <p class="lede">The names have been drawn! Tap your own name to see who you're buying for.</p>
+  </header>
+
+  <section class="info" aria-label="Budget and gift ideas">
+    <div class="budget">
+      <span class="budget-label">Budget</span>
+      <span class="budget-amount">$125</span>
+      <span class="budget-note">all-in, including tax &amp; shipping</span>
+    </div>
+    <a class="ideas" href="https://docs.google.com/spreadsheets/d/1zIxaBFHF75YJzFsjh8y78kuQNwGyLvwgAu72ZeuieCU/edit?gid=0#gid=0" target="_blank" rel="noopener">
+      <span class="ideas-icon" aria-hidden="true">💡</span>
+      <span>
+        <span class="ideas-title">Gift ideas list</span>
+        <span class="ideas-sub">See what everyone's hoping for</span>
+      </span>
+      <span class="ideas-arrow" aria-hidden="true">↗</span>
+    </a>
+  </section>
+
+  <!-- Shown when draw.js is missing or unreadable -->
+  <section id="noDraw" hidden>
+    <div class="panel center">
+      <h2>The names haven't been drawn yet</h2>
+      <p>Check back soon!</p>
+    </div>
+  </section>
+
+  <section id="reveal" hidden>
+    <p class="status">Tap <strong>your own</strong> name. No peeking at anyone else's!</p>
+    <div class="grid" id="grid"></div>
+    <p class="drawn-on" id="drawnOn"></p>
+  </section>
+</main>
+
+<dialog id="dialog">
+  <div class="modal" id="confirmStep">
+    <div class="gift" style="font-size:44px">🎅</div>
+    <h3>Are you <span id="confirmName"></span>?</h3>
+    <p>Make sure nobody else is looking at your screen.</p>
+    <div class="row">
+      <button class="btn secondary small" id="cancelBtn">Not me</button>
+      <button class="btn small" id="showBtn">Yes, show me</button>
+    </div>
+  </div>
+  <div class="modal" id="resultStep" hidden>
+    <p style="margin-bottom:4px"><span id="resultName"></span>, you're buying a gift for</p>
+    <div class="target" id="resultTarget"></div>
+    <p class="reminder">Remember: <strong>$125 all-in</strong>. Need inspiration? Check the
+      <a href="https://docs.google.com/spreadsheets/d/1zIxaBFHF75YJzFsjh8y78kuQNwGyLvwgAu72ZeuieCU/edit?gid=0#gid=0" target="_blank" rel="noopener">gift ideas list</a>.</p>
+    <div class="row">
+      <button class="btn small" id="hideBtn">Got it, hide it</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- The pre-made draw, created with setup.html -->
+<script src="draw.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  const decode = (s) =>
+    JSON.parse(decodeURIComponent(escape(atob(s.split('').reverse().join('')))));
+
+  function loadDraw() {
+    try {
+      const data = decode(window.SECRET_SANTA_DRAW);
+      const names = Object.keys(data.pairs || {});
+      return names.length ? data : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const draw = loadDraw();
+  let current = null;
+
+  function renderGrid() {
+    $('grid').innerHTML = Object.keys(draw.pairs).map((name) => `
+      <button class="card" data-name="${name}" aria-label="See who ${name} is buying for">
+        <span class="gift">🎁</span>
+        <span class="name">${name}</span>
+        <span class="hint">Tap to reveal</span>
+      </button>`).join('');
+    const when = new Date(draw.created);
+    if (!isNaN(when)) {
+      $('drawnOn').textContent = 'Names drawn ' +
+        when.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+  }
+
+  function openFor(name) {
+    current = name;
+    $('resultTarget').textContent = '';
+    $('confirmName').textContent = name;
+    $('confirmStep').hidden = false;
+    $('resultStep').hidden = true;
+    $('dialog').showModal();
+    $('showBtn').focus();
+  }
+
+  function closeDialog() {
+    $('dialog').close();
+    $('resultTarget').textContent = '';
+    current = null;
+  }
+
+  $('grid').addEventListener('click', (e) => {
+    const card = e.target.closest('.card');
+    if (card) openFor(card.dataset.name);
+  });
+  $('cancelBtn').addEventListener('click', closeDialog);
+  $('showBtn').addEventListener('click', () => {
+    $('resultName').textContent = current;
+    $('resultTarget').textContent = draw.pairs[current];
+    $('confirmStep').hidden = true;
+    $('resultStep').hidden = false;
+    $('hideBtn').focus();
+  });
+  $('hideBtn').addEventListener('click', closeDialog);
+  // Wipe the revealed name whenever the dialog closes (button, Esc, back gesture...).
+  // The close event can arrive late, so skip it if the dialog has already been reopened.
+  $('dialog').addEventListener('close', () => {
+    if ($('dialog').open) return;
+    $('resultTarget').textContent = '';
+    current = null;
+  });
+
+  if (draw) {
+    renderGrid();
+    $('reveal').hidden = false;
+  } else {
+    $('noDraw').hidden = false;
+    document.querySelector('.lede').textContent = 'Tap your own name to see who you\'re buying for.';
+  }
+</script>
+<script src="snow.js"></script>
+</body>
+</html>
